@@ -16,7 +16,7 @@ public class TestController {
     public Map<String, Object> testOAuth2() {
         Map<String, Object> response = new HashMap<>();
         response.put("message", "Click the link below to test Google OAuth2");
-        response.put("oauth2_url", "http://localhost:8080/api/oauth2/authorization/google");
+        response.put("oauth2_url", "https://hiring-be-production.up.railway.app/api/login/oauth2/code/google");
         response.put("instructions", new String[]{
                 "1. Click the oauth2_url",
                 "2. Sign in with Google",
