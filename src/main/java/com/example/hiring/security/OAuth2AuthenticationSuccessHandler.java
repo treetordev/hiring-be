@@ -1,4 +1,4 @@
-package com.example.authservice.security;
+package com.example.hiring.security;
 
 
 import com.example.hiring.dto.auth.AuthResponse;
