@@ -10,12 +10,22 @@ public class AuthResponse {
     private Long userId;
     private String email;
     private String fullName;
+
+    public boolean isProfileComplete() {
+        return isProfileComplete;
+    }
+
+    public void setProfileComplete(boolean profileComplete) {
+        isProfileComplete = profileComplete;
+    }
+
     private Set<Role> roles;
+    private boolean isProfileComplete;
 
     public AuthResponse() {}
 
     public AuthResponse(String accessToken, String refreshToken, String tokenType,
-                        Long userId, String email, String fullName, Set<Role> roles) {
+                        Long userId, String email, String fullName, Set<Role> roles,boolean isProfileComplete) {
         this.accessToken = accessToken;
         this.refreshToken = refreshToken;
         this.tokenType = tokenType;
@@ -23,6 +33,7 @@ public class AuthResponse {
         this.email = email;
         this.fullName = fullName;
         this.roles = roles;
+        this.isProfileComplete=isProfileComplete;
     }
 
     // Getters and Setters

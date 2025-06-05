@@ -64,7 +64,8 @@ public class AuthService {
                 user.getId(),
                 user.getEmail(),
                 user.getFullName(),
-                user.getRoles()
+                user.getRoles(),
+                user.isSetupComplete()
         );
     }
 
@@ -97,7 +98,8 @@ public class AuthService {
                 savedUser.getId(),
                 savedUser.getEmail(),
                 savedUser.getFullName(),
-                savedUser.getRoles()
+                savedUser.getRoles(),
+                savedUser.isSetupComplete()
         );
     }
 
@@ -127,7 +129,8 @@ public class AuthService {
                 user.getId(),
                 user.getEmail(),
                 user.getFullName(),
-                user.getRoles()
+                user.getRoles(),
+                user.isSetupComplete()
         );
     }
 

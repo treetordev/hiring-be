@@ -51,7 +51,8 @@ public class OAuth2Service {
                 user.getId(),
                 user.getEmail(),
                 user.getFullName(),
-                user.getRoles()
+                user.getRoles(),
+                user.isSetupComplete()
         );
     }
 
