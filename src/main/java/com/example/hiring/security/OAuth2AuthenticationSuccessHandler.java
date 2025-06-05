@@ -28,6 +28,7 @@ public class OAuth2AuthenticationSuccessHandler extends SimpleUrlAuthenticationS
     @Value("${app.frontend.url}")
     private String frontendUrl;
 
+
     private static final ObjectMapper mapper = new ObjectMapper();
 
     @Override
