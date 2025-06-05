@@ -101,6 +101,7 @@ public class OAuth2Service {
         User newUser = new User(firstName, lastName, email, GOOGLE, providerId);
         newUser.setProfilePicture(profilePicture);
         newUser.setEmailVerified(true);
+        newUser.setSetupComplete(false);
 
         return userRepository.save(newUser);
     }

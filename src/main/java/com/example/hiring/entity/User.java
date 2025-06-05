@@ -62,6 +62,8 @@ public class User implements UserDetails {
     @Column(name = "enabled")
     private Boolean enabled = true;
 
+    private boolean isSetupComplete;
+
     @ElementCollection(fetch = FetchType.EAGER)
     @Enumerated(EnumType.STRING)
     @CollectionTable(name = "user_roles", joinColumns = @JoinColumn(name = "user_id"))
@@ -183,5 +185,13 @@ public class User implements UserDetails {
 
     public String getFullName() {
         return firstName + " " + lastName;
+    }
+
+    public boolean isSetupComplete() {
+        return isSetupComplete;
+    }
+
+    public void setSetupComplete(boolean setupComplete) {
+        isSetupComplete = setupComplete;
     }
 }
