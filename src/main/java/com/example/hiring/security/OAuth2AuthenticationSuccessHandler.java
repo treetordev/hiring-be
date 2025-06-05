@@ -1,4 +1,5 @@
-package com.example.hiring.security;
+package com.example.authservice.security;
+
 
 import com.example.hiring.dto.auth.AuthResponse;
 import com.example.hiring.service.OAuth2Service;
@@ -24,7 +25,7 @@ public class OAuth2AuthenticationSuccessHandler extends SimpleUrlAuthenticationS
     @Autowired
     private OAuth2Service oAuth2Service;
 
-    @Value("${app.cors.allowed-origins[0]:http://localhost:3000}")//url ya domain rediretion
+    @Value("${app.frontend.url:http://localhost:3000}")
     private String frontendUrl;
 
     private static final ObjectMapper mapper = new ObjectMapper();
@@ -36,11 +37,21 @@ public class OAuth2AuthenticationSuccessHandler extends SimpleUrlAuthenticationS
         try {
             AuthResponse authResponse = oAuth2Service.processOAuth2Login(authentication);
 
-            // For testing backend only - return JSON
+            // Redirect to frontend user-profile page with tokens
+            String targetUrl = UriComponentsBuilder.fromUriString(frontendUrl + "/user-profile")
+                    .queryParam("token", authResponse.getAccessToken())
+                    .queryParam("refreshToken", authResponse.getRefreshToken())
+                    .queryParam("success", "true")
+                    .build().toUriString();
+
+            response.sendRedirect(targetUrl);
+
+            // For testing backend only - comment above and uncomment below
+            /*
             response.setContentType(MediaType.APPLICATION_JSON_VALUE);
             response.setStatus(HttpServletResponse.SC_OK);
 
-            // refactor
+            // Create a success response
             var successResponse = new java.util.HashMap<String, Object>();
             successResponse.put("success", true);
             successResponse.put("message", "OAuth2 authentication successful");
@@ -55,39 +66,17 @@ public class OAuth2AuthenticationSuccessHandler extends SimpleUrlAuthenticationS
             }});
 
             mapper.writeValue(response.getOutputStream(), successResponse);
-
-            // Agar frontend aata then redirect idhr se karwayenge
-            /*
-            String targetUrl = UriComponentsBuilder.fromUriString(frontendUrl + "/auth/callback")
-                .queryParam("token", authResponse.getAccessToken())
-                .queryParam("refreshToken", authResponse.getRefreshToken())
-                .queryParam("success", "true")
-                .build().toUriString();
-
-            response.sendRedirect(targetUrl);
             */
 
         } catch (Exception e) {
-            // For testing - return JSON error response
-            response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-            response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-
-            var errorResponse = new java.util.HashMap<String, Object>();
-            errorResponse.put("success", false);
-            errorResponse.put("error", "authentication_failed");
-            errorResponse.put("message", e.getMessage());
-
-            mapper.writeValue(response.getOutputStream(), errorResponse);
-
-            // Frontend aane pe
-            /*
-            String errorUrl = UriComponentsBuilder.fromUriString(frontendUrl + "/auth/callback")
-                .queryParam("error", "authentication_failed")
-                .queryParam("success", "false")
-                .build().toUriString();
+            // Redirect to frontend with error
+            String errorUrl = UriComponentsBuilder.fromUriString(frontendUrl + "/user-profile")
+                    .queryParam("error", "authentication_failed")
+                    .queryParam("success", "false")
+                    .queryParam("message", e.getMessage())
+                    .build().toUriString();
 
             response.sendRedirect(errorUrl);
-            */
         }
     }
 }
