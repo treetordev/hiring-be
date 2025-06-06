@@ -4,70 +4,90 @@ import jakarta.persistence.*;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
+import lombok.*;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
 import java.time.LocalDateTime;
 import java.util.Collection;
-import java.util.List;
 import java.util.Set;
 
 @Entity
-@Table(name = "users",
-        uniqueConstraints = {
-                @UniqueConstraint(columnNames = "email")
-        })
+@Table(name = "users", uniqueConstraints = {
+        @UniqueConstraint(columnNames = "email")
+})
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+@ToString(exclude = {"password"})
+@EqualsAndHashCode(of = {"id", "email"})
 public class User implements UserDetails {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @NotBlank
+    @NotBlank(message = "First name is required")
     @Size(max = 50)
+    @Column(name = "first_name")
     private String firstName;
 
-    @NotBlank
+    // Made lastName nullable for OAuth2 users who might not have separate family name
     @Size(max = 50)
+    @Column(name = "last_name")
     private String lastName;
 
-    @NotBlank
+    @NotBlank(message = "Email is required")
     @Size(max = 100)
     @Email
+    @Column(unique = true)
     private String email;
 
     @Size(max = 120)
     private String password;
 
     @Enumerated(EnumType.STRING)
+    @Builder.Default
     private AuthProvider provider = AuthProvider.LOCAL;
 
+    @Column(name = "provider_id")
     private String providerId;
 
+    @Column(name = "profile_picture")
     private String profilePicture;
 
     @Column(name = "email_verified")
+    @Builder.Default
     private Boolean emailVerified = false;
 
     @Column(name = "account_non_expired")
+    @Builder.Default
     private Boolean accountNonExpired = true;
 
     @Column(name = "account_non_locked")
+    @Builder.Default
     private Boolean accountNonLocked = true;
 
     @Column(name = "credentials_non_expired")
+    @Builder.Default
     private Boolean credentialsNonExpired = true;
 
     @Column(name = "enabled")
+    @Builder.Default
     private Boolean enabled = true;
 
-    private boolean isSetupComplete;
+    @Column(name = "is_setup_complete")
+    @Builder.Default
+    private boolean isSetupComplete = false;
 
     @ElementCollection(fetch = FetchType.EAGER)
     @Enumerated(EnumType.STRING)
     @CollectionTable(name = "user_roles", joinColumns = @JoinColumn(name = "user_id"))
     @Column(name = "role")
+    @Builder.Default
     private Set<Role> roles = Set.of(Role.USER);
 
     @Column(name = "created_at")
@@ -80,6 +100,11 @@ public class User implements UserDetails {
     protected void onCreate() {
         createdAt = LocalDateTime.now();
         updatedAt = LocalDateTime.now();
+
+        // Set default lastName if null for OAuth2 users
+        if (lastName == null || lastName.trim().isEmpty()) {
+            lastName = "User";
+        }
     }
 
     @PreUpdate
@@ -87,25 +112,36 @@ public class User implements UserDetails {
         updatedAt = LocalDateTime.now();
     }
 
-    public User() {}
-
     // Constructor for local registration
     public User(String firstName, String lastName, String email, String password) {
         this.firstName = firstName;
-        this.lastName = lastName;
+        this.lastName = lastName != null ? lastName : "User";
         this.email = email;
         this.password = password;
         this.provider = AuthProvider.LOCAL;
+        this.roles = Set.of(Role.USER);
+        this.emailVerified = false;
+        this.enabled = true;
+        this.accountNonExpired = true;
+        this.accountNonLocked = true;
+        this.credentialsNonExpired = true;
+        this.isSetupComplete = false;
     }
 
     // Constructor for OAuth registration
     public User(String firstName, String lastName, String email, AuthProvider provider, String providerId) {
         this.firstName = firstName;
-        this.lastName = lastName;
+        this.lastName = lastName != null ? lastName : "User";
         this.email = email;
         this.provider = provider;
         this.providerId = providerId;
-        this.emailVerified = true; // mostly oauth verified rhega..recheck
+        this.emailVerified = true;
+        this.roles = Set.of(Role.USER);
+        this.enabled = true;
+        this.accountNonExpired = true;
+        this.accountNonLocked = true;
+        this.credentialsNonExpired = true;
+        this.isSetupComplete = false;
     }
 
     // UserDetails implementation
@@ -141,49 +177,10 @@ public class User implements UserDetails {
         return enabled;
     }
 
-    // Getters and Setters
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
-
-    public String getFirstName() { return firstName; }
-    public void setFirstName(String firstName) { this.firstName = firstName; }
-
-    public String getLastName() { return lastName; }
-    public void setLastName(String lastName) { this.lastName = lastName; }
-
-    public String getEmail() { return email; }
-    public void setEmail(String email) { this.email = email; }
-
-    public String getPassword() { return password; }
-    public void setPassword(String password) { this.password = password; }
-
-    public AuthProvider getProvider() { return provider; }
-    public void setProvider(AuthProvider provider) { this.provider = provider; }
-
-    public String getProviderId() { return providerId; }
-    public void setProviderId(String providerId) { this.providerId = providerId; }
-
-    public String getProfilePicture() { return profilePicture; }
-    public void setProfilePicture(String profilePicture) { this.profilePicture = profilePicture; }
-
-    public Boolean getEmailVerified() { return emailVerified; }
-    public void setEmailVerified(Boolean emailVerified) { this.emailVerified = emailVerified; }
-
-    public void setAccountNonExpired(Boolean accountNonExpired) { this.accountNonExpired = accountNonExpired; }
-    public void setAccountNonLocked(Boolean accountNonLocked) { this.accountNonLocked = accountNonLocked; }
-    public void setCredentialsNonExpired(Boolean credentialsNonExpired) { this.credentialsNonExpired = credentialsNonExpired; }
-    public void setEnabled(Boolean enabled) { this.enabled = enabled; }
-
-    public Set<Role> getRoles() { return roles; }
-    public void setRoles(Set<Role> roles) { this.roles = roles; }
-
-    public LocalDateTime getCreatedAt() { return createdAt; }
-    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
-
-    public LocalDateTime getUpdatedAt() { return updatedAt; }
-    public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
-
     public String getFullName() {
+        if (lastName == null || lastName.trim().isEmpty() || "User".equals(lastName)) {
+            return firstName;
+        }
         return firstName + " " + lastName;
     }
 
