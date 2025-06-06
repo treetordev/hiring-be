@@ -1,110 +1,181 @@
 package com.example.hiring.service;
 
 import com.example.hiring.dto.auth.AuthResponse;
+import com.example.hiring.entity.AuthProvider;
 import com.example.hiring.entity.User;
+import com.example.hiring.exception.OAuth2AuthenticationProcessingException;
 import com.example.hiring.repository.UserRepository;
 import com.example.hiring.util.JwtUtils;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.example.hiring.entity.AuthProvider.GOOGLE;
-
+@Slf4j
 @Service
 @Transactional
+@RequiredArgsConstructor
 public class OAuth2Service {
 
-    @Autowired
-    private UserRepository userRepository;
-
-    @Autowired
-    private JwtUtils jwtUtils;
-
-    @Autowired
-    private RefreshTokenService refreshTokenService;
+    private final UserRepository userRepository;
+    private final JwtUtils jwtUtils;
+    private final RefreshTokenService refreshTokenService;
 
     public AuthResponse processOAuth2Login(Authentication authentication) {
         OAuth2User oauth2User = (OAuth2User) authentication.getPrincipal();
-        Map<String, Object> attributes = oauth2User.getAttributes();
 
-        String email = (String) attributes.get("email");
-        String firstName = (String) attributes.get("given_name");
-        String lastName = (String) attributes.get("family_name");
-        String providerId = (String) attributes.get("sub");
-        String profilePicture = (String) attributes.get("picture");
+        try {
+            User user = processOAuth2User(oauth2User);
 
-        User user = findOrCreateUser(email, firstName, lastName, providerId, profilePicture);
+            String accessToken = jwtUtils.generateTokenFromUser(user);
+            String refreshToken = refreshTokenService.createRefreshToken(user);
 
-        String accessToken = jwtUtils.generateTokenFromUser(user);
-        String refreshToken = refreshTokenService.createRefreshToken(user);
+            log.info("OAuth2 authentication successful for user: {}", user.getEmail());
 
-        return new AuthResponse(
-                accessToken,
-                refreshToken,
-                "Bearer",
-                user.getId(),
-                user.getEmail(),
-                user.getFullName(),
-                user.getRoles(),
-                user.isSetupComplete()
-        );
+            return new AuthResponse(
+                    accessToken,
+                    refreshToken,
+                    "Bearer",
+                    user.getId(),
+                    user.getEmail(),
+                    user.getFullName(),
+                    user.getRoles(),
+                    user.isSetupComplete()
+            );
+        } catch (Exception e) {
+            log.error("Error processing OAuth2 user", e);
+            throw new OAuth2AuthenticationProcessingException("Error processing OAuth2 authentication", e);
+        }
     }
 
-    private User findOrCreateUser(String email, String firstName, String lastName,
-                                  String providerId, String profilePicture) {
-        Optional<User> userOptional = userRepository.findByEmailAndProvider(email, GOOGLE);
+    private User processOAuth2User(OAuth2User oauth2User) {
+        Map<String, Object> attributes = oauth2User.getAttributes();
+        OAuth2UserInfo userInfo = OAuth2UserInfoFactory.getOAuth2UserInfo("google", attributes);
+
+        if (!StringUtils.hasText(userInfo.getEmail())) {
+            throw new OAuth2AuthenticationProcessingException("Email not found from OAuth2 provider");
+        }
+
+        Optional<User> userOptional = userRepository.findByEmail(userInfo.getEmail());
 
         if (userOptional.isPresent()) {
-            User existingUser = userOptional.get();
-            // Update user information , need to update this discuss karna
-            boolean updated = false;
-
-            /*if (!providerId.equals(existingUser.getProviderId())) {
-                existingUser.setProviderId(providerId);
-                updated = true;
-            }
-             */
-
-            if (profilePicture != null && !profilePicture.equals(existingUser.getProfilePicture())) {
-                existingUser.setProfilePicture(profilePicture);
-                updated = true;
-            }
-
-            if (updated) {
-                existingUser.setUpdatedAt(LocalDateTime.now());
-                return userRepository.save(existingUser);
-            }
-
-            return existingUser;
+            return updateExistingUser(userOptional.get(), userInfo);
+        } else {
+            return createNewUser(userInfo);
         }
+    }
 
-        // for checking agar user exists karta with same email but different provider lke github
-        Optional<User> existingUserWithEmail = userRepository.findByEmail(email);
-        if (existingUserWithEmail.isPresent()) {
-            User existingUser = existingUserWithEmail.get();
-            // Link OAuth account to existing user
-            existingUser.setProvider(GOOGLE);
-            existingUser.setProviderId(providerId);
+    private User updateExistingUser(User existingUser, OAuth2UserInfo userInfo) {
+        boolean needsUpdate = false;
+
+        // Update provider if it was local before
+        if (existingUser.getProvider() == AuthProvider.LOCAL) {
+            existingUser.setProvider(AuthProvider.GOOGLE);
+            existingUser.setProviderId(userInfo.getId());
             existingUser.setEmailVerified(true);
-            if (profilePicture != null) {
-                existingUser.setProfilePicture(profilePicture);
-            }
-            existingUser.setUpdatedAt(LocalDateTime.now());
-            return userRepository.save(existingUser);
+            needsUpdate = true;
         }
 
-        // Create new user
-        User newUser = new User(firstName, lastName, email, GOOGLE, providerId);
-        newUser.setProfilePicture(profilePicture);
-        newUser.setEmailVerified(true);
-        newUser.setSetupComplete(false);
+        // Update profile picture if provided and different
+        if (StringUtils.hasText(userInfo.getImageUrl()) &&
+                !userInfo.getImageUrl().equals(existingUser.getProfilePicture())) {
+            existingUser.setProfilePicture(userInfo.getImageUrl());
+            needsUpdate = true;
+        }
 
-        return userRepository.save(newUser);
+        // Update name if not set
+        if (!StringUtils.hasText(existingUser.getFirstName()) && StringUtils.hasText(userInfo.getFirstName())) {
+            existingUser.setFirstName(userInfo.getFirstName());
+            needsUpdate = true;
+        }
+
+        if (!StringUtils.hasText(existingUser.getLastName()) && StringUtils.hasText(userInfo.getLastName())) {
+            existingUser.setLastName(userInfo.getLastName());
+            needsUpdate = true;
+        }
+
+        if (needsUpdate) {
+            existingUser.setUpdatedAt(LocalDateTime.now());
+            existingUser = userRepository.save(existingUser);
+            log.info("Updated existing user: {}", existingUser.getEmail());
+        }
+
+        return existingUser;
+    }
+
+    private User createNewUser(OAuth2UserInfo userInfo) {
+        User user = new User();
+        user.setFirstName(userInfo.getFirstName());
+        user.setLastName(userInfo.getLastName());
+        user.setEmail(userInfo.getEmail());
+        user.setProvider(AuthProvider.GOOGLE);
+        user.setProviderId(userInfo.getId());
+        user.setProfilePicture(userInfo.getImageUrl());
+        user.setEmailVerified(true);
+        user.setSetupComplete(false);
+
+        user = userRepository.save(user);
+        log.info("Created new user from OAuth2: {}", user.getEmail());
+
+        return user;
+    }
+
+    // OAuth2UserInfo interface and factory for loose coupling
+    public interface OAuth2UserInfo {
+        String getId();
+        String getFirstName();
+        String getLastName();
+        String getEmail();
+        String getImageUrl();
+    }
+
+    public static class GoogleOAuth2UserInfo implements OAuth2UserInfo {
+        private final Map<String, Object> attributes;
+
+        public GoogleOAuth2UserInfo(Map<String, Object> attributes) {
+            this.attributes = attributes;
+        }
+
+        @Override
+        public String getId() {
+            return (String) attributes.get("sub");
+        }
+
+        @Override
+        public String getFirstName() {
+            return (String) attributes.get("given_name");
+        }
+
+        @Override
+        public String getLastName() {
+            return (String) attributes.get("family_name");
+        }
+
+        @Override
+        public String getEmail() {
+            return (String) attributes.get("email");
+        }
+
+        @Override
+        public String getImageUrl() {
+            return (String) attributes.get("picture");
+        }
+    }
+
+    public static class OAuth2UserInfoFactory {
+        public static OAuth2UserInfo getOAuth2UserInfo(String registrationId, Map<String, Object> attributes) {
+            if ("google".equalsIgnoreCase(registrationId)) {
+                return new GoogleOAuth2UserInfo(attributes);
+            } else {
+                throw new OAuth2AuthenticationProcessingException("Login with " + registrationId + " is not supported");
+            }
+        }
     }
 }

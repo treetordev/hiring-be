@@ -1,15 +1,14 @@
 package com.example.hiring.security;
 
-
 import com.example.hiring.dto.auth.AuthResponse;
 import com.example.hiring.service.OAuth2Service;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.ServletException;
+import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.MediaType;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.web.authentication.SimpleUrlAuthenticationSuccessHandler;
 import org.springframework.stereotype.Component;
@@ -19,17 +18,15 @@ import java.io.IOException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 
+@Slf4j
 @Component
+@RequiredArgsConstructor
 public class OAuth2AuthenticationSuccessHandler extends SimpleUrlAuthenticationSuccessHandler {
 
-    @Autowired
-    private OAuth2Service oAuth2Service;
+    private final OAuth2Service oAuth2Service;
 
     @Value("${app.frontend.url}")
     private String frontendUrl;
-
-
-    private static final ObjectMapper mapper = new ObjectMapper();
 
     @Override
     public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response,
@@ -38,46 +35,46 @@ public class OAuth2AuthenticationSuccessHandler extends SimpleUrlAuthenticationS
         try {
             AuthResponse authResponse = oAuth2Service.processOAuth2Login(authentication);
 
-            // Redirect to frontend user-profile page with tokens
-            String targetUrl = UriComponentsBuilder.fromUriString(frontendUrl + "/user-profile")
+            // Add secure cookies for better security
+            addTokenCookie(response, "accessToken", authResponse.getAccessToken(), 24 * 60 * 60); // 24 hours
+            addTokenCookie(response, "refreshToken", authResponse.getRefreshToken(), 7 * 24 * 60 * 60); // 7 days
+
+            // Determine redirect URL based on profile completion status
+            String redirectPath = authResponse.isProfileComplete() ? "/dashboard" : "/user-profile";
+
+            String targetUrl = UriComponentsBuilder.fromUriString(frontendUrl + redirectPath)
                     .queryParam("token", authResponse.getAccessToken())
                     .queryParam("refreshToken", authResponse.getRefreshToken())
                     .queryParam("success", "true")
+                    .queryParam("userId", authResponse.getUserId())
+                    .queryParam("profileComplete", authResponse.isProfileComplete())
                     .build().toUriString();
 
-            response.sendRedirect(targetUrl);
+            log.info("OAuth2 login successful for user: {} (ID: {})",
+                    authResponse.getEmail(), authResponse.getUserId());
 
-            // For testing backend only - comment above and uncomment below
-            /*
-            response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-            response.setStatus(HttpServletResponse.SC_OK);
-
-            // Create a success response
-            var successResponse = new java.util.HashMap<String, Object>();
-            successResponse.put("success", true);
-            successResponse.put("message", "OAuth2 authentication successful");
-            successResponse.put("accessToken", authResponse.getAccessToken());
-            successResponse.put("refreshToken", authResponse.getRefreshToken());
-            successResponse.put("tokenType", authResponse.getTokenType());
-            successResponse.put("user", new java.util.HashMap<String, Object>() {{
-                put("id", authResponse.getUserId());
-                put("email", authResponse.getEmail());
-                put("fullName", authResponse.getFullName());
-                put("roles", authResponse.getRoles());
-            }});
-
-            mapper.writeValue(response.getOutputStream(), successResponse);
-            */
+            getRedirectStrategy().sendRedirect(request, response, targetUrl);
 
         } catch (Exception e) {
-            // Redirect to frontend with error
-            String errorUrl = UriComponentsBuilder.fromUriString(frontendUrl + "/user-profile")
-                    .queryParam("error", "authentication_failed")
+            log.error("Error processing OAuth2 authentication success", e);
+
+            String errorUrl = UriComponentsBuilder.fromUriString(frontendUrl + "/login")
+                    .queryParam("error", "processing_failed")
                     .queryParam("success", "false")
-                    .queryParam("message", e.getMessage())
+                    .queryParam("message", URLEncoder.encode("Authentication processing failed", StandardCharsets.UTF_8))
                     .build().toUriString();
 
-            response.sendRedirect(errorUrl);
+            getRedirectStrategy().sendRedirect(request, response, errorUrl);
         }
+    }
+
+    private void addTokenCookie(HttpServletResponse response, String name, String value, int maxAge) {
+        Cookie cookie = new Cookie(name, value);
+        cookie.setHttpOnly(true);
+        cookie.setSecure(true); // Only send over HTTPS
+        cookie.setPath("/");
+        cookie.setMaxAge(maxAge);
+        cookie.setAttribute("SameSite", "Lax");
+        response.addCookie(cookie);
     }
 }
