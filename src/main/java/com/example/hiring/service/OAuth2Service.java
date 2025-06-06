@@ -28,9 +28,6 @@ public class OAuth2Service {
     @Autowired
     private JwtUtils jwtUtils;
 
-    @Autowired(required = false)
-    private RefreshTokenService refreshTokenService;
-
     public AuthResponse processOAuth2Login(Authentication authentication) {
         try {
             OAuth2User oauth2User = (OAuth2User) authentication.getPrincipal();
@@ -43,37 +40,27 @@ public class OAuth2Service {
             String providerId = (String) attributes.get("sub");
             String profilePicture = (String) attributes.get("picture");
 
-            log.info("OAuth2 user attributes: email={}, name={}, given_name={}, family_name={}",
-                    email, fullName, givenName, familyName);
+            log.info("OAuth2 processing for email: {}", email);
 
             if (!StringUtils.hasText(email)) {
                 throw new RuntimeException("Email not found from OAuth2 provider");
             }
 
-            // Handle missing first/last names
-            String firstName = extractFirstName(givenName, familyName, fullName);
-            String lastName = extractLastName(givenName, familyName, fullName);
+            // Simple name extraction
+            String firstName = StringUtils.hasText(givenName) ? givenName :
+                    (StringUtils.hasText(fullName) ? fullName.split(" ")[0] : "User");
+            String lastName = StringUtils.hasText(familyName) ? familyName : "User";
 
             User user = findOrCreateUser(email, firstName, lastName, providerId, profilePicture);
 
+            // Generate only access token for now - no refresh token to avoid complications
             String accessToken = jwtUtils.generateTokenFromUser(user);
-
-            // Try to create refresh token, but don't fail if it doesn't work
-            String refreshToken = null;
-            try {
-                if (refreshTokenService != null) {
-                    refreshToken = refreshTokenService.createRefreshToken(user);
-                }
-            } catch (Exception e) {
-                log.warn("Failed to create refresh token for user {}: {}", user.getEmail(), e.getMessage());
-                // Continue without refresh token
-            }
 
             log.info("OAuth2 authentication successful for user: {}", user.getEmail());
 
             return new AuthResponse(
                     accessToken,
-                    refreshToken, // Can be null
+                    null, // No refresh token for now
                     "Bearer",
                     user.getId(),
                     user.getEmail(),
@@ -82,37 +69,9 @@ public class OAuth2Service {
                     user.isSetupComplete()
             );
         } catch (Exception e) {
-            log.error("Error processing OAuth2 user", e);
-            throw new RuntimeException("Error processing OAuth2 authentication: " + e.getMessage());
+            log.error("Error processing OAuth2 user: {}", e.getMessage(), e);
+            throw new RuntimeException("Error processing OAuth2 authentication");
         }
-    }
-
-    private String extractFirstName(String givenName, String familyName, String fullName) {
-        if (StringUtils.hasText(givenName)) {
-            return givenName;
-        }
-
-        if (StringUtils.hasText(fullName)) {
-            String[] nameParts = fullName.trim().split("\\s+");
-            return nameParts[0];
-        }
-
-        return "User"; // Fallback
-    }
-
-    private String extractLastName(String givenName, String familyName, String fullName) {
-        if (StringUtils.hasText(familyName)) {
-            return familyName;
-        }
-
-        if (StringUtils.hasText(fullName)) {
-            String[] nameParts = fullName.trim().split("\\s+");
-            if (nameParts.length > 1) {
-                return String.join(" ", java.util.Arrays.copyOfRange(nameParts, 1, nameParts.length));
-            }
-        }
-
-        return "User"; // Fallback
     }
 
     private User findOrCreateUser(String email, String firstName, String lastName,
@@ -121,32 +80,20 @@ public class OAuth2Service {
 
         if (userOptional.isPresent()) {
             User existingUser = userOptional.get();
-            boolean needsUpdate = false;
+            log.info("Found existing user: {}", existingUser.getEmail());
 
-            // Update provider if it was local before
+            // Simple update without complex logic
             if (existingUser.getProvider() == AuthProvider.LOCAL) {
                 existingUser.setProvider(AuthProvider.GOOGLE);
                 existingUser.setProviderId(providerId);
                 existingUser.setEmailVerified(true);
-                needsUpdate = true;
-            }
-
-            // Update profile picture if provided and different
-            if (StringUtils.hasText(profilePicture) &&
-                    !profilePicture.equals(existingUser.getProfilePicture())) {
-                existingUser.setProfilePicture(profilePicture);
-                needsUpdate = true;
-            }
-
-            if (needsUpdate) {
                 existingUser.setUpdatedAt(LocalDateTime.now());
-                existingUser = userRepository.save(existingUser);
-                log.info("Updated existing user: {}", existingUser.getEmail());
+                return userRepository.save(existingUser);
             }
 
             return existingUser;
         } else {
-            // Create new user
+            // Create new user with minimal required fields
             User user = new User();
             user.setFirstName(firstName);
             user.setLastName(lastName);
@@ -157,11 +104,16 @@ public class OAuth2Service {
             user.setEmailVerified(true);
             user.setSetupComplete(false);
 
-            user = userRepository.save(user);
-            log.info("Created new user from OAuth2: {} (firstName: {}, lastName: {})",
-                    user.getEmail(), user.getFirstName(), user.getLastName());
+            // Set required fields explicitly
+            user.setEnabled(true);
+            user.setAccountNonExpired(true);
+            user.setAccountNonLocked(true);
+            user.setCredentialsNonExpired(true);
 
-            return user;
+            User savedUser = userRepository.save(user);
+            log.info("Created new OAuth2 user: {}", savedUser.getEmail());
+
+            return savedUser;
         }
     }
 }
