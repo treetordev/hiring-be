@@ -65,10 +65,11 @@ public class OAuth2Service {
             // Update user information , need to update this discuss karna
             boolean updated = false;
 
-            if (!providerId.equals(existingUser.getProviderId())) {
+            /*if (!providerId.equals(existingUser.getProviderId())) {
                 existingUser.setProviderId(providerId);
                 updated = true;
             }
+             */
 
             if (profilePicture != null && !profilePicture.equals(existingUser.getProfilePicture())) {
                 existingUser.setProfilePicture(profilePicture);
