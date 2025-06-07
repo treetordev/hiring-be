@@ -30,7 +30,7 @@ public class UserController {
     @PostMapping("/complete-profile")
     public ResponseEntity<String> createOrUpdateUserProfile(@RequestBody UserProfileRequest request) {
         // You can process or save the request here
-        System.out.println("Received user profile for userId: " + request.getUserId());
+        System.out.println("Received user profile for user: " + request);
         userProfileService.saveUserProfile(request);
         return ResponseEntity.ok("User profile saved successfully");
     }
