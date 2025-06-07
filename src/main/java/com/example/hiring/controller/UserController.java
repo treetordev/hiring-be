@@ -17,7 +17,7 @@ public class UserController {
     private UserService userService;
 
     @GetMapping("/user-acc-details/{id}")
-    public UserProfile getUserAccountDetails(@RequestParam Long id){
+    public UserProfile getUserAccountDetails(@PathVariable Long id){
         return userService.getUserAccountDetails(id);
     }
 
