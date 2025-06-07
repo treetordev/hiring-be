@@ -16,7 +16,7 @@ public class UserController {
     @Autowired
     private UserService userService;
 
-    @GetMapping("/user-acc-details")
+    @GetMapping("/user-acc-details/{id}")
     public UserProfile getUserAccountDetails(@RequestParam Long id){
         return userService.getUserAccountDetails(id);
     }
