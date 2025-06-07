@@ -5,7 +5,7 @@ import lombok.Data;
 import java.util.List;
 
 @Data
-public class UserProfileRequest {
+public class UserProfileDto {
     private String userId;
     private PersonalInfoDto personalInfo;
     private EmploymentDetailsDto employmentDetails;

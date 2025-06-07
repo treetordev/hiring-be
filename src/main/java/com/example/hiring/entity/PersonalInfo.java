@@ -4,6 +4,7 @@ package com.example.hiring.entity;
 import jakarta.persistence.*;
 import lombok.Data;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @Entity
@@ -15,7 +16,7 @@ public class PersonalInfo {
     private String fullName;
     private String emailId;
     private String contactNumber;
-    private String dateOfBirth;
+    private LocalDate dateOfBirth;
     private String gender;
     private String currentLocation;
     private String shortBio;

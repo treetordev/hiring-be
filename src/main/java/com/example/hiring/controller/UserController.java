@@ -1,8 +1,7 @@
 package com.example.hiring.controller;
 
-import com.example.hiring.dto.auth.AuthResponse;
 import com.example.hiring.dto.auth.UserProfile;
-import com.example.hiring.dto.auth.UserProfileRequest;
+import com.example.hiring.dto.auth.UserProfileDto;
 import com.example.hiring.service.UserProfileService;
 import com.example.hiring.service.UserService;
 import lombok.extern.slf4j.Slf4j;
@@ -28,11 +27,17 @@ public class UserController {
     }
 
     @PostMapping("/complete-profile")
-    public ResponseEntity<String> createOrUpdateUserProfile(@RequestBody UserProfileRequest request) {
+    public ResponseEntity<String> createOrUpdateUserProfile(@RequestBody UserProfileDto request) {
         // You can process or save the request here
         System.out.println("Received user profile for user: " + request);
         userProfileService.saveUserProfile(request);
         return ResponseEntity.ok("User profile saved successfully");
+    }
+
+    @GetMapping("/complete-profile/{id}")
+    public ResponseEntity<UserProfileDto> userProfileById(@PathVariable Long id){
+        UserProfileDto profileResponse =userProfileService.getProfileById(id);
+        return ResponseEntity.ok(profileResponse);
     }
 
 
