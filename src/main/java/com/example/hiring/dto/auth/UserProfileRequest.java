@@ -6,7 +6,7 @@ import java.util.List;
 
 @Data
 public class UserProfileRequest {
-    private String userId;
+    private Long userId;
     private PersonalInfoDto personalInfo;
     private EmploymentDetailsDto employmentDetails;
     private List<ProjectDto> projects;

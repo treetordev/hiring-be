@@ -3,6 +3,7 @@ package com.example.hiring.controller;
 import com.example.hiring.dto.auth.AuthResponse;
 import com.example.hiring.dto.auth.UserProfile;
 import com.example.hiring.dto.auth.UserProfileRequest;
+import com.example.hiring.dto.auth.UserProfileResponse;
 import com.example.hiring.service.UserProfileService;
 import com.example.hiring.service.UserService;
 import lombok.extern.slf4j.Slf4j;
@@ -22,10 +23,7 @@ public class UserController {
     @Autowired
     private UserProfileService userProfileService;
 
-    @GetMapping("/user-acc-details/{id}")
-    public UserProfile getUserAccountDetails(@PathVariable Long id){
-        return userService.getUserAccountDetails(id);
-    }
+
 
     @PostMapping("/complete-profile")
     public ResponseEntity<String> createOrUpdateUserProfile(@RequestBody UserProfileRequest request) {
@@ -34,7 +32,11 @@ public class UserController {
         userProfileService.saveUserProfile(request);
         return ResponseEntity.ok("User profile saved successfully");
     }
-
+    @GetMapping("/user-acc-details/{id}")
+    public UserProfileResponse getUserAccountDetails(@PathVariable Long id) {
+        log.info("Fetching account details for user ID: {}", id);
+        return userProfileService.getUserAccountDetails(id);
+    }
 
 
 }
