@@ -11,10 +11,10 @@ public class UserProfileConverter {
     public static UserProfile convertRequestToEntity(UserProfileRequest request) {
         UserProfile profile = new UserProfile();
         profile.setUserId(request.getUserId());
-        profile.setPersonalInfo(convertPersonalInfo(request.getPersonalInfoDto()));
-        profile.setEmploymentDetails(convertEmploymentDetails(request.getEmploymentDetailsDto()));
-        profile.setProjects(request.getProjectDtos().stream().map(UserProfileConverter::convertProject).collect(Collectors.toList()));
-        profile.setQualifications(convertQualifications(request.getQualificationsDto()));
+        profile.setPersonalInfo(convertPersonalInfo(request.getPersonalInfo()));
+        profile.setEmploymentDetails(convertEmploymentDetails(request.getEmploymentDetails()));
+        profile.setProjects(request.getProjects().stream().map(UserProfileConverter::convertProject).collect(Collectors.toList()));
+        profile.setQualifications(convertQualifications(request.getQualifications()));
         profile.setProfileOverview(convertProfileOverview(request.getProfileOverview()));
         return profile;
     }
