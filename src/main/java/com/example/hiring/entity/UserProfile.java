@@ -14,7 +14,7 @@ public class UserProfile {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private String userId;
+    private Long userId;
 
     @OneToOne(cascade = CascadeType.ALL)
     private PersonalInfo personalInfo;

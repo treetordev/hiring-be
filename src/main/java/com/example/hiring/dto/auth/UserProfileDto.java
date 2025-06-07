@@ -6,7 +6,7 @@ import java.util.List;
 
 @Data
 public class UserProfileDto {
-    private String userId;
+    private long userId;
     private PersonalInfoDto personalInfo;
     private EmploymentDetailsDto employmentDetails;
     private List<ProjectDto> projects;

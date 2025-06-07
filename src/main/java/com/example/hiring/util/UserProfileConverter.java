@@ -92,7 +92,7 @@ public class UserProfileConverter {
 
     public static UserProfileDto toDto(UserProfile entity) {
         UserProfileDto response = new UserProfileDto();
-        response.setUserId(String.valueOf(entity.getId()));
+        response.setUserId(entity.getId());
         response.setPersonalInfo(toPersonalInfoDto(entity.getPersonalInfo()));
         response.setEmploymentDetails(toEmploymentDetailsDto(entity.getEmploymentDetails()));
         response.setProjects(entity.getProjects().stream().map(UserProfileConverter::toProjectDto).collect(Collectors.toList()));
