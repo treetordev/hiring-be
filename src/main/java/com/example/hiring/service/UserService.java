@@ -27,6 +27,7 @@ public class UserService {
             userProfile.setFirstName(user.getFirstName());
             userProfile.setLastName(user.getLastName());
             userProfile.setId(user.getId());
+            userProfile.setIsSetupComplete(user.isSetupComplete());
             return userProfile;
         }
         else{

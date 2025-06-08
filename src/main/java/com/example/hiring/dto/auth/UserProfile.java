@@ -2,9 +2,12 @@ package com.example.hiring.dto.auth;
 
 import com.example.hiring.entity.AuthProvider;
 import com.example.hiring.entity.Role;
+import lombok.Data;
+
 import java.time.LocalDateTime;
 import java.util.Set;
 
+@Data
 public class UserProfile {
     private Long id;
     private String firstName;
@@ -15,6 +18,7 @@ public class UserProfile {
     private Set<Role> roles;
     private Boolean emailVerified;
     private LocalDateTime createdAt;
+    private Boolean isSetupComplete;
 
     public UserProfile() {}
 
